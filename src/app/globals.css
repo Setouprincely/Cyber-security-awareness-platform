@@ -280,8 +280,6 @@
   }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -304,7 +302,7 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
-  font-family: 'Inter', sans-serif;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 /* Custom scrollbar */

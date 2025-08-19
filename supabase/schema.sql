@@ -26,8 +26,8 @@ create policy "Users can update their own profile."
   using ( auth.uid() = id );
 
 -- Create a function to handle new user signup
-create function public.handle_new_user() 
-returns trigger as $$
+create or replace function public.handle_new_user() 
+returns trigger as $
 begin
   insert into public.profiles (id, email, name, role)
   values (
@@ -38,7 +38,7 @@ begin
   );
   return new;
 end;
-$$ language plpgsql security definer;
+$ language plpgsql security definer;
 
 -- Trigger the function every time a user is created
 create trigger on_auth_user_created

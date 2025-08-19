@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Eye, EyeOff, Shield, Mail, Lock, User, ArrowLeft, ArrowRight, CheckCircle, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import Confetti from 'react-confetti'
-import { useAuth } from '@/components/providers/AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { signUp } from '@/lib/auth'
 import {
   registrationStep1Schema,
@@ -58,16 +58,13 @@ export default function RegisterPage() {
   const onStep2Submit = async (data: RegistrationStep2Data) => {
     try {
       const step1Data = step1Form.getValues()
-      const { user } = await signUp(step1Data.email, data.password, step1Data.name)
+      console.log('🔐 Starting registration process...')
+      
+      const { user } = await signUp(step1Data.email, data.password, step1Data.name, data.role as any)
 
       if (user) {
-        setUser({
-          id: user.id,
-          email: user.email!,
-          name: step1Data.name,
-          role: data.role as any,
-        })
-
+        console.log('✅ Registration successful, user created:', user.id)
+        
         // Show confetti and success message
         setShowConfetti(true)
         toast.success('Neural Network Access Granted! Welcome to the Cyber Defense Network', {
@@ -79,12 +76,22 @@ export default function RegisterPage() {
           }
         })
 
+        // Wait a moment for the user to see the success message, then redirect to login
         setTimeout(() => {
           setShowConfetti(false)
+          toast.success('Please log in with your new account to access the dashboard', {
+            style: {
+              background: 'rgba(10, 10, 35, 0.9)',
+              border: '1px solid #00D4FF',
+              color: '#E0E0E0',
+              boxShadow: '0 0 20px rgba(0, 212, 255, 0.3)'
+            }
+          })
           router.push('/auth/login')
         }, 3000)
       }
     } catch (error: any) {
+      console.error('❌ Registration failed:', error)
       toast.error(error.message || 'Network Access Denied - Registration Failed', {
         style: {
           background: 'rgba(10, 10, 35, 0.9)',
@@ -211,12 +218,10 @@ export default function RegisterPage() {
                   <CyberInput
                     {...step1Form.register('name')}
                     type="text"
-                    label="Neural Identity"
                     placeholder="Enter your designation"
                     icon={<User className="h-5 w-5" />}
                     error={step1Form.formState.errors.name?.message}
                     glowColor="purple"
-                    animatedLabel
                   />
                 </motion.div>
 
@@ -229,12 +234,10 @@ export default function RegisterPage() {
                   <CyberInput
                     {...step1Form.register('email')}
                     type="email"
-                    label="Network Address"
                     placeholder="Enter your neural network ID"
                     icon={<Mail className="h-5 w-5" />}
                     error={step1Form.formState.errors.email?.message}
                     glowColor="blue"
-                    animatedLabel
                   />
                 </motion.div>
 
@@ -277,7 +280,6 @@ export default function RegisterPage() {
                   <CyberInput
                     {...step2Form.register('password')}
                     type={showPassword ? 'text' : 'password'}
-                    label="Security Passphrase"
                     placeholder="Create your access code"
                     icon={<Lock className="h-5 w-5" />}
                     rightIcon={
@@ -297,7 +299,6 @@ export default function RegisterPage() {
                     }
                     error={step2Form.formState.errors.password?.message}
                     glowColor="pink"
-                    animatedLabel
                   />
                 </motion.div>
 
@@ -310,7 +311,6 @@ export default function RegisterPage() {
                   <CyberInput
                     {...step2Form.register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
-                    label="Confirm Passphrase"
                     placeholder="Verify your access code"
                     icon={<Lock className="h-5 w-5" />}
                     rightIcon={
@@ -330,7 +330,6 @@ export default function RegisterPage() {
                     }
                     error={step2Form.formState.errors.confirmPassword?.message}
                     glowColor="pink"
-                    animatedLabel
                   />
                 </motion.div>
 

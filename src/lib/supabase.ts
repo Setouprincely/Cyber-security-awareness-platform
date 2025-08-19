@@ -14,6 +14,16 @@ export const supabase = createClient(
     auth: {
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce',
+    },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: {
+        'x-my-custom-header': 'cybersecurity-platform',
+      },
     },
   }
 );

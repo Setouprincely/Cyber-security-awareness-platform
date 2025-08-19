@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useAuth } from '@/components/providers/AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { Shield, Menu, X, Bell, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
