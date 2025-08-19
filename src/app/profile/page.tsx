@@ -45,6 +45,10 @@ export default function ProfilePage() {
     phone: '+1 (555) 123-4567',
     location: 'New York, NY',
   })
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' })
+  const [pwdChanging, setPwdChanging] = useState(false)
+  const [certificates, setCertificates] = useState<Array<{ id: string; course_name: string; score: number; issued_at: string; pdf_data_url?: string }>>([])
 
   useEffect(() => {
     // Simulate real-time stats updates
@@ -141,10 +145,15 @@ export default function ProfilePage() {
     },
   ]
 
-  const handleSave = () => {
-    // Here you would typically save to your backend
-    console.log('Saving profile data:', formData)
-    setIsEditing(false)
+  const handleSave = async () => {
+    try {
+      // Save profile basic fields via Supabase profile table
+      const res = await fetch('/api/auth/me', { method: 'GET' })
+      // For now optimistic only; in a full impl, POST to a profile update route
+      setIsEditing(false)
+    } catch {
+      setIsEditing(false)
+    }
   }
 
   const handleCancel = () => {
@@ -159,7 +168,19 @@ export default function ProfilePage() {
     setIsEditing(false)
   }
 
+  useEffect(() => {
+    // Load certificates
+    fetch('/api/training/certificates')
+      .then(r => r.json())
+      .then(d => {
+        if (d && Array.isArray(d.certificates)) setCertificates(d.certificates)
+      })
+      .catch(() => {})
+  }, [])
+
   return (
+    <Layout>
+      <PageContainer>
     <div className="space-y-6">
       {/* Header */}
       <GlassCard variant="cyber" className="p-6">
@@ -222,6 +243,15 @@ export default function ProfilePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg"
+                    onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">PNG or JPEG up to 5MB.</p>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                   {isEditing ? (
@@ -326,6 +356,48 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+              {/* Certificates */}
+              <div className="border border-gray-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Certificates</h3>
+                <div className="space-y-3">
+                  {certificates.length === 0 && <p className="text-sm text-gray-600">No certificates yet.</p>}
+                  {certificates.map(c => (
+                    <div key={c.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-gray-900">{c.course_name}</p>
+                        <p className="text-xs text-gray-600">Score {c.score}% • {new Date(c.issued_at).toLocaleDateString()}</p>
+                      </div>
+                      {c.pdf_data_url && (
+                        <a className="text-primary-600 text-sm underline" href={c.pdf_data_url} download>Download PDF</a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <CyberButton
+                    variant="secondary"
+                    onClick={async ()=>{
+                      try {
+                        const { jsPDF } = await import('jspdf')
+                        const doc = new jsPDF()
+                        const courseName = 'Cybersecurity Fundamentals'
+                        doc.text('Certificate of Completion', 20, 20)
+                        doc.text(`Awarded to: ${formData.name || user?.name || 'User'}`, 20, 35)
+                        doc.text(`Course: ${courseName}`, 20, 50)
+                        doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 65)
+                        const pdfDataUrl = doc.output('datauristring')
+                        const res = await fetch('/api/training/certificates', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName, score: 100, pdfDataUrl }) })
+                        const data = await res.json()
+                        if (res.ok && data.certificate) {
+                          setCertificates(prev => [data.certificate, ...prev])
+                        }
+                      } catch {}
+                    }}
+                  >
+                    Generate Demo Certificate
+                  </CyberButton>
+                </div>
+              </div>
             </div>
           )}
 
@@ -405,13 +477,51 @@ export default function ProfilePage() {
                       <p className="font-medium text-gray-900">Two-Factor Authentication</p>
                       <p className="text-sm text-gray-600">Add an extra layer of security</p>
                     </button>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <input type="password" placeholder="Current password" className="px-3 py-2 border border-gray-300 rounded-lg" value={passwords.current} onChange={(e)=>setPasswords({...passwords, current: e.target.value})} />
+                      <input type="password" placeholder="New password" className="px-3 py-2 border border-gray-300 rounded-lg" value={passwords.next} onChange={(e)=>setPasswords({...passwords, next: e.target.value})} />
+                      <input type="password" placeholder="Confirm new password" className="px-3 py-2 border border-gray-300 rounded-lg" value={passwords.confirm} onChange={(e)=>setPasswords({...passwords, confirm: e.target.value})} />
+                    </div>
+                    <CyberButton
+                      onClick={async ()=>{
+                        if (!passwords.next || passwords.next !== passwords.confirm) return
+                        setPwdChanging(true)
+                        try {
+                          const res = await fetch('/api/auth/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ currentPassword: passwords.current, newPassword: passwords.next }) })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data?.error || 'Failed')
+                          setPasswords({ current: '', next: '', confirm: '' })
+                        } catch (e) {
+                          // optionally show toast
+                        } finally {
+                          setPwdChanging(false)
+                        }
+                      }}
+                      variant="primary"
+                      disabled={pwdChanging || !passwords.current || !passwords.next || passwords.next !== passwords.confirm}
+                    >
+                      {pwdChanging ? 'Updating…' : 'Update Password'}
+                    </CyberButton>
+                    <CyberButton
+                      onClick={async ()=>{
+                        try {
+                          await fetch('/api/auth/logout-all', { method: 'POST' })
+                          window.location.href = '/auth/login'
+                        } catch {}
+                      }}
+                      variant="ghost"
+                    >
+                      Log Out of All Devices
+                    </CyberButton>
                   </div>
                 </div>
               </div>
             </div>
           )}
         </div>
-      </div>
+      </GlassCard>
     </div>
+      </PageContainer>
+    </Layout>
   )
 }

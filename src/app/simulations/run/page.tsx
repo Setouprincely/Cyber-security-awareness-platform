@@ -1,11 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Mail, Shield, AlertTriangle, CheckCircle, Clock, Target, Smartphone, Globe } from 'lucide-react'
+import { Mail, Smartphone, Globe, CheckCircle, AlertTriangle } from 'lucide-react'
+import Layout from '@/components/layout/Layout'
 import { GlassCard } from '@/components/ui/GlassCard'
 import { CyberButton } from '@/components/ui/cyber-button'
-import Layout, { PageContainer } from '@/components/layout/Layout'
 
 type ScenarioType = 'EMAIL' | 'SMS' | 'WEBSITE'
 
@@ -35,8 +34,9 @@ interface WebsiteVariation {
 
 type Variation = EmailVariation | SmsVariation | WebsiteVariation
 
-export default function SimulationsPage() {
-  const router = useRouter()
+function randomItem<T>(items: T[]): T { return items[Math.floor(Math.random() * items.length)] }
+
+export default function SimulationRunPage() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [scenarioType, setScenarioType] = useState<ScenarioType | null>(null)
   const [variation, setVariation] = useState<Variation | null>(null)
@@ -46,37 +46,10 @@ export default function SimulationsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const startTimeRef = useRef<number | null>(null)
 
-  function randomItem<T>(items: T[]): T { return items[Math.floor(Math.random() * items.length)] }
-
-  // Expanded scenario catalogs
   const emailCatalog: Array<() => EmailVariation> = [
-    () => ({
-      sender: 'IT Support <no-reply@c0mpany.com>',
-      subject: 'URGENT: Password Expiring Today',
-      preview: 'Update your password now to avoid lockout.',
-      body: 'We detected unusual sign-in activity. To keep your account secure, update your password using the link below.',
-      ctaText: 'Update Password',
-      ctaUrl: 'https://secure-c0mpany.com/reset',
-      cues: ['Misspelled domain', 'Urgent tone', 'Link host mismatch'],
-    }),
-    () => ({
-      sender: 'HR Department <hr@company-support.com>',
-      subject: 'Updated Benefits Package - Action Required',
-      preview: 'Please verify your information to access your new benefits.',
-      body: 'We have updated our benefits provider. Please verify your details.',
-      ctaText: 'Verify Details',
-      ctaUrl: 'https://company-support.com/benefits',
-      cues: ['Third-party domain', 'Generic salutation'],
-    }),
-    () => ({
-      sender: 'Admin Desk <admin@secure-company.co>',
-      subject: 'Shared File: Q4_Payroll.xlsx',
-      preview: 'You have been granted access to a payroll file.',
-      body: 'A file has been shared with you. You must log in to view it.',
-      ctaText: 'Open File',
-      ctaUrl: 'https://secure-company.co/files/payroll',
-      cues: ['Unexpected file', 'External host'],
-    }),
+    () => ({ sender: 'IT Support <no-reply@c0mpany.com>', subject: 'URGENT: Password Expiring Today', preview: 'Update your password now to avoid lockout.', body: 'We detected unusual sign-in activity. To keep your account secure, update your password using the link below.', ctaText: 'Update Password', ctaUrl: 'https://secure-c0mpany.com/reset', cues: ['Misspelled domain', 'Urgent tone', 'Link host mismatch'] }),
+    () => ({ sender: 'HR Department <hr@company-support.com>', subject: 'Updated Benefits Package - Action Required', preview: 'Please verify your information to access your new benefits.', body: 'We have updated our benefits provider. Please verify your details.', ctaText: 'Verify Details', ctaUrl: 'https://company-support.com/benefits', cues: ['Third-party domain', 'Generic salutation'] }),
+    () => ({ sender: 'Admin Desk <admin@secure-company.co>', subject: 'Shared File: Q4_Payroll.xlsx', preview: 'You have been granted access to a payroll file.', body: 'A file has been shared with you. You must log in to view it.', ctaText: 'Open File', ctaUrl: 'https://secure-company.co/files/payroll', cues: ['Unexpected file', 'External host'] }),
   ]
 
   const smsCatalog: Array<() => SmsVariation> = [
@@ -91,17 +64,9 @@ export default function SimulationsPage() {
     () => ({ title: 'Banking Online', realDomain: 'online.bank.com', fakeDomain: 'secure-online-bank.help', cues: ['Non-bank TLD', 'Vague branding'] }),
   ]
 
-  function generateEmailVariation(): EmailVariation {
-    return randomItem(emailCatalog)()
-  }
-
-  function generateSmsVariation(): SmsVariation {
-    return randomItem(smsCatalog)()
-  }
-
-  function generateWebsiteVariation(): WebsiteVariation {
-    return randomItem(websiteCatalog)()
-  }
+  function generateEmailVariation(): EmailVariation { return randomItem(emailCatalog)() }
+  function generateSmsVariation(): SmsVariation { return randomItem(smsCatalog)() }
+  function generateWebsiteVariation(): WebsiteVariation { return randomItem(websiteCatalog)() }
 
   const startSimulation = useCallback(async () => {
     setStatus('idle')
@@ -124,8 +89,6 @@ export default function SimulationsPage() {
       startTimeRef.current = Date.now()
       setStatus('running')
     } catch (e: any) {
-      console.error(e)
-      // Fallback to local demo mode so users can still experience the simulation
       const localScenario: ScenarioType = randomItem(['EMAIL', 'SMS', 'WEBSITE'])
       const localVariation = localScenario === 'EMAIL' ? generateEmailVariation() : localScenario === 'SMS' ? generateSmsVariation() : generateWebsiteVariation()
       setSessionId(`local-${crypto.randomUUID()}`)
@@ -133,7 +96,7 @@ export default function SimulationsPage() {
       setVariation(localVariation)
       startTimeRef.current = Date.now()
       setStatus('running')
-      setErrorMsg('Running in demo mode (not logged). Actions won\'t be saved to analytics.')
+      setErrorMsg('Running in demo mode (not logged). Actions will not be saved.')
     }
   }, [])
 
@@ -142,14 +105,8 @@ export default function SimulationsPage() {
     setEvents((prev) => [...prev, { action, meta, ts: Date.now() }])
     if (sessionId.startsWith('local-')) return
     try {
-      await fetch('/api/simulations/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, scenarioType, action, meta }),
-      })
-    } catch (e) {
-      console.error('Failed to log event', e)
-    }
+      await fetch('/api/simulations/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, scenarioType, action, meta }) })
+    } catch {}
   }, [sessionId, scenarioType])
 
   const endSimulation = useCallback(async (didSucceed: boolean) => {
@@ -158,70 +115,15 @@ export default function SimulationsPage() {
     const elapsed = startTimeRef.current ? Date.now() - startTimeRef.current : null
     try {
       if (sessionId && sessionId.startsWith('local-')) return
-      await fetch('/api/simulations/session/end', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId, success: didSucceed, timeTakenMs: elapsed }),
-      })
-    } catch (e) {
-      console.error('Failed to end session', e)
-    }
+      await fetch('/api/simulations/session/end', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId, success: didSucceed, timeTakenMs: elapsed }) })
+    } catch {}
   }, [sessionId])
 
-  const Header = (
-    <GlassCard className="p-6 bg-gradient-to-r from-cyber-blue/10 to-cyber-purple/10" variant="cyber">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-cyber-white mb-1">Phishing Simulations</h1>
-          <p className="text-cyber-white/70">Experience realistic, interactive phishing scenarios. Your actions are tracked securely to help you learn.</p>
-        </div>
-        <div className="hidden md:flex gap-3">
-          <CyberButton variant="secondary" onClick={() => router.push('/simulations/run')}>Start Randomized Simulation</CyberButton>
-          <a href="/simulations/run"><CyberButton variant="primary">Open Full-screen</CyberButton></a>
-        </div>
-      </div>
-      {errorMsg && (
-        <div className="mt-3 text-sm text-yellow-400">
-          {errorMsg}
-        </div>
-      )}
-    </GlassCard>
-  )
-
-  const Intro = (
-    <GlassCard className="p-6" variant="cyber">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="flex items-start gap-3">
-          <div className="p-3 rounded-lg bg-cyber-blue/10"><Mail className="h-6 w-6 text-cyber-blue" /></div>
-          <div>
-            <p className="text-cyber-white font-semibold">Email Phishing</p>
-            <p className="text-cyber-white/70 text-sm">Spoofed senders, urgent language, and suspicious links resembling corporate emails.</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <div className="p-3 rounded-lg bg-cyber-green/10"><Smartphone className="h-6 w-6 text-cyber-green" /></div>
-          <div>
-            <p className="text-cyber-white font-semibold">SMS Phishing</p>
-            <p className="text-cyber-white/70 text-sm">Mobile-like messages urging verification via malicious short links.</p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <div className="p-3 rounded-lg bg-cyber-purple/10"><Globe className="h-6 w-6 text-cyber-purple" /></div>
-          <div>
-            <p className="text-cyber-white font-semibold">Fake Website Login</p>
-            <p className="text-cyber-white/70 text-sm">Lookalike login portal designed to harvest credentials.</p>
-          </div>
-        </div>
-      </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <CyberButton variant="primary" onClick={() => router.push('/simulations/run')}>Start Randomized Simulation</CyberButton>
-      </div>
-    </GlassCard>
-  )
+  useEffect(() => { startSimulation() }, [startSimulation])
 
   function EmailSim({ v }: { v: EmailVariation }) {
     return (
-      <GlassCard className="p-0 overflow-hidden" variant="cyber">
+      <GlassCard className="p-0 overflow-hidden h-full" variant="cyber">
         <div className="border-b border-cyber-blue/20 p-4 flex items-center justify-between bg-black/30">
           <div>
             <p className="text-cyber-white font-semibold">Inbox</p>
@@ -240,19 +142,7 @@ export default function SimulationsPage() {
           </div>
           <div className="prose prose-invert max-w-none">
             <p className="text-cyber-white/90">{v.body}</p>
-            <a
-              href={v.ctaUrl}
-              className="inline-block mt-4 text-cyber-blue underline"
-              onMouseEnter={() => logEvent('HOVERED_LINK', { url: v.ctaUrl })}
-              onClick={(e) => {
-                e.preventDefault()
-                logEvent('LINK_CLICKED', { url: v.ctaUrl })
-                endSimulation(false)
-              }}
-              title={`Destination: ${v.ctaUrl}`}
-            >
-              {v.ctaText}
-            </a>
+            <a href={v.ctaUrl} className="inline-block mt-4 text-cyber-blue underline" onMouseEnter={() => logEvent('HOVERED_LINK', { url: v.ctaUrl })} onClick={(e) => { e.preventDefault(); logEvent('LINK_CLICKED', { url: v.ctaUrl }); endSimulation(false) }} title={`Destination: ${v.ctaUrl}`}>{v.ctaText}</a>
           </div>
           <div className="flex gap-3 mt-6">
             <CyberButton variant="secondary" onClick={() => { logEvent('REPORTED_PHISHING'); endSimulation(true) }}>Report Phishing</CyberButton>
@@ -265,7 +155,7 @@ export default function SimulationsPage() {
 
   function SmsSim({ v }: { v: SmsVariation }) {
     return (
-      <GlassCard className="p-6" variant="cyber">
+      <GlassCard className="p-6 h-full" variant="cyber">
         <div className="mx-auto max-w-sm">
           <div className="rounded-2xl border border-cyber-blue/20 bg-black/30 p-4">
             <div className="text-center text-cyber-white/60 text-xs mb-2">Simulated SMS</div>
@@ -275,15 +165,7 @@ export default function SimulationsPage() {
               <span>{v.message.substring(v.message.indexOf(' ') + 1)}</span>
             </div>
             <div className="mt-3">
-              <a
-                href={v.badUrl}
-                className="text-cyber-blue underline"
-                onMouseEnter={() => logEvent('HOVERED_LINK', { url: v.badUrl })}
-                onClick={(e) => { e.preventDefault(); logEvent('LINK_CLICKED', { url: v.badUrl }); endSimulation(false) }}
-                title={`Destination: ${v.badUrl}`}
-              >
-                {v.badUrl}
-              </a>
+              <a href={v.badUrl} className="text-cyber-blue underline" onMouseEnter={() => logEvent('HOVERED_LINK', { url: v.badUrl })} onClick={(e) => { e.preventDefault(); logEvent('LINK_CLICKED', { url: v.badUrl }); endSimulation(false) }} title={`Destination: ${v.badUrl}`}>{v.badUrl}</a>
             </div>
             <div className="flex gap-3 mt-4">
               <CyberButton variant="secondary" onClick={() => { logEvent('REPORTED_PHISHING'); endSimulation(true) }}>Report SMS</CyberButton>
@@ -299,7 +181,7 @@ export default function SimulationsPage() {
     const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     return (
-      <GlassCard className="p-0 overflow-hidden" variant="cyber">
+      <GlassCard className="p-0 overflow-hidden h-full" variant="cyber">
         <div className="border-b border-cyber-blue/20 p-4 flex items-center justify-between bg-black/30">
           <div>
             <p className="text-cyber-white font-semibold">{v.title}</p>
@@ -308,15 +190,7 @@ export default function SimulationsPage() {
           <div className="text-xs text-cyber-white/60">Simulated website</div>
         </div>
         <div className="p-6 max-w-md">
-          <form
-            className="space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              // Do not send actual credentials; only lengths
-              logEvent('FORM_SUBMITTED', { usernameLength: username.length, passwordLength: password.length, host: v.fakeDomain })
-              endSimulation(false)
-            }}
-          >
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); logEvent('FORM_SUBMITTED', { usernameLength: username.length, passwordLength: password.length, host: v.fakeDomain }); endSimulation(false) }}>
             <div>
               <label className="block text-sm text-cyber-white/70">Username</label>
               <input value={username} onChange={(e) => setUsername(e.target.value)} className="mt-1 w-full rounded-md bg-black/40 border border-cyber-blue/20 p-2 text-cyber-white" placeholder="user@company.com" />
@@ -337,18 +211,10 @@ export default function SimulationsPage() {
     )
   }
 
+  const elapsedMs = useMemo(() => { const start = startTimeRef.current; if (!start) return 0; return Math.max(0, Date.now() - start) }, [success])
+
   function Summary() {
-    const elapsedMs = useMemo(() => {
-      const start = startTimeRef.current
-      if (!start) return 0
-      return Math.max(0, Date.now() - start)
-    }, [success])
-
-    const tips: string[] = useMemo(() => {
-      if (!variation) return []
-      return ('cues' in variation ? variation.cues : []) as string[]
-    }, [variation])
-
+    const tips: string[] = useMemo(() => { if (!variation) return []; return ('cues' in variation ? variation.cues : []) as string[] }, [variation])
     return (
       <GlassCard className="p-6" variant="cyber">
         <div className="flex items-center justify-between mb-4">
@@ -356,9 +222,7 @@ export default function SimulationsPage() {
             {success ? <CheckCircle className="h-6 w-6 text-cyber-green" /> : <AlertTriangle className="h-6 w-6 text-cyber-red" />}
             <p className="text-cyber-white font-semibold">{success ? 'Great job! You handled the phishing attempt.' : 'You fell for the attempt. Learn from the cues below.'}</p>
           </div>
-          <div className={`px-3 py-1 rounded-full text-xs ${success ? 'bg-cyber-green/10 text-cyber-green' : 'bg-cyber-red/10 text-cyber-red'}`}>
-            {success ? 'Passed' : 'Failed'}
-          </div>
+          <div className={`px-3 py-1 rounded-full text-xs ${success ? 'bg-cyber-green/10 text-cyber-green' : 'bg-cyber-red/10 text-cyber-red'}`}>{success ? 'Passed' : 'Failed'}</div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
@@ -377,9 +241,7 @@ export default function SimulationsPage() {
         <div className="mt-6">
           <p className="text-cyber-white font-semibold mb-2">What to look for next time</p>
           <ul className="list-disc pl-5 space-y-1 text-cyber-white/90">
-            {tips.map((t, i) => (
-              <li key={i}>{t}</li>
-            ))}
+            {tips.map((t, i) => (<li key={i}>{t}</li>))}
             {!tips.length && <li>Verify sender, hover links to inspect destination, and confirm domains before entering credentials.</li>}
           </ul>
         </div>
@@ -391,23 +253,45 @@ export default function SimulationsPage() {
   }
 
   return (
-    <Layout>
-      <PageContainer>
-        <div className="space-y-6">
-          {Header}
-          {status === 'idle' && Intro}
-          {status === 'running' && scenarioType && variation && (
-            scenarioType === 'EMAIL' ? (
-              <EmailSim v={variation as EmailVariation} />
-            ) : scenarioType === 'SMS' ? (
-              <SmsSim v={variation as SmsVariation} />
-            ) : (
-              <WebsiteSim v={variation as WebsiteVariation} />
-            )
-          )}
-          {status === 'summary' && <Summary />}
+    <Layout showNavbar={false}>
+      <div className="min-h-screen p-4 md:p-8 bg-gradient-to-br from-cyber-blue/10 via-cyber-purple/10 to-cyber-pink/10">
+        <div className="max-w-5xl mx-auto space-y-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl md:text-3xl font-bold text-gradient-cyber">Full-screen Phishing Simulation</h1>
+            <div className="flex gap-2">
+              <CyberButton variant="secondary" onClick={startSimulation}>Restart</CyberButton>
+              <a href="/simulations"><CyberButton variant="ghost">Exit</CyberButton></a>
+            </div>
+          </div>
+          {errorMsg && <div className="text-yellow-400 text-sm">{errorMsg}</div>}
+          <div className="h-[70vh] md:h-[75vh]">
+            {status === 'running' && scenarioType && variation && (
+              scenarioType === 'EMAIL' ? (
+                <EmailSim v={variation as EmailVariation} />
+              ) : scenarioType === 'SMS' ? (
+                <SmsSim v={variation as SmsVariation} />
+              ) : (
+                <WebsiteSim v={variation as WebsiteVariation} />
+              )
+            )}
+            {status === 'summary' && <Summary />}
+            {status === 'idle' && (
+              <GlassCard className="p-6 h-full flex items-center justify-center" variant="cyber">
+                <div className="text-center space-y-3">
+                  <div className="flex items-center justify-center gap-3 text-cyber-white/80">
+                    <Mail className="h-5 w-5" />
+                    <Smartphone className="h-5 w-5" />
+                    <Globe className="h-5 w-5" />
+                  </div>
+                  <p className="text-cyber-white">Preparing a randomized scenario...</p>
+                </div>
+              </GlassCard>
+            )}
+          </div>
         </div>
-      </PageContainer>
+      </div>
     </Layout>
   )
 }
+
+

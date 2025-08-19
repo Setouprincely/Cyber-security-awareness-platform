@@ -42,11 +42,12 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
   
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
-  const { notifications, unreadCount } = useNotifications()
+  const { notifications, unreadCount, markAsRead, deleteNotification, markAllAsRead } = useNotifications()
 
   // Real-time search functionality
   useEffect(() => {
@@ -153,6 +154,18 @@ export default function Navbar() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (searchResults.length > 0) {
+                        const first = (searchResults as any[])[0]
+                        router.push(first.href)
+                        setSearchQuery('')
+                        setSearchResults([])
+                      }
+                    } else if (e.key === 'Escape') {
+                      setSearchResults([])
+                    }
+                  }}
                   className="input-cyber pl-10 pr-4 py-2 w-full text-sm"
                   placeholder="Search modules, simulations..."
                 />
@@ -204,7 +217,12 @@ export default function Navbar() {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <button className="p-2 rounded-full text-cyber-white/70 hover:text-cyber-blue transition-colors duration-300">
+                <button 
+                  className="p-2 rounded-full text-cyber-white/70 hover:text-cyber-blue transition-colors duration-300"
+                  onClick={() => setIsNotificationsOpen(prev => !prev)}
+                  aria-haspopup="true"
+                  aria-expanded={isNotificationsOpen}
+                >
                   <BellIcon className="h-6 w-6" />
                   {unreadCount > 0 && (
                     <motion.span
@@ -216,6 +234,61 @@ export default function Navbar() {
                     </motion.span>
                   )}
                 </button>
+                <AnimatePresence>
+                  {isNotificationsOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-80 bg-cyber-dark/95 backdrop-blur-md border border-cyber-blue/30 rounded-lg shadow-xl overflow-hidden z-50"
+                    >
+                      <div className="flex items-center justify-between px-4 py-2 border-b border-cyber-blue/20">
+                        <span className="text-sm font-medium text-cyber-white/80">Notifications</span>
+                        <button 
+                          className="text-xs text-cyber-white/60 hover:text-cyber-blue"
+                          onClick={() => markAllAsRead()}
+                        >
+                          Mark all read
+                        </button>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-4 text-center text-cyber-white/60 text-sm">No notifications</div>
+                        ) : (
+                          notifications.map((n: any) => (
+                            <div key={n.id} className={`px-4 py-3 border-b border-cyber-blue/10 hover:bg-cyber-blue/5 ${n.read ? 'opacity-70' : ''}`}>
+                              <div className="flex items-start gap-3">
+                                <div className={`mt-0.5 h-2.5 w-2.5 rounded-full ${n.read ? 'bg-cyber-white/30' : 'bg-cyber-blue'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-cyber-white line-clamp-1">{n.title}</p>
+                                  <p className="text-xs text-cyber-white/70 line-clamp-2">{n.message}</p>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    {n.actionUrl && (
+                                      <button
+                                        className="text-xs text-cyber-blue hover:underline"
+                                        onClick={() => {
+                                          markAsRead(n.id)
+                                          router.push(n.actionUrl)
+                                          setIsNotificationsOpen(false)
+                                        }}
+                                      >
+                                        View
+                                      </button>
+                                    )}
+                                    {!n.read && (
+                                      <button className="text-xs text-cyber-white/60 hover:text-cyber-blue" onClick={() => markAsRead(n.id)}>Mark read</button>
+                                    )}
+                                    <button className="ml-auto text-xs text-cyber-white/60 hover:text-cyber-red" onClick={() => deleteNotification(n.id)}>Dismiss</button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
 
               {/* Profile dropdown */}
@@ -297,6 +370,19 @@ export default function Navbar() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (searchResults.length > 0) {
+                            const first = (searchResults as any[])[0]
+                            router.push(first.href)
+                            setSearchQuery('')
+                            setSearchResults([])
+                            setIsOpen(false)
+                          }
+                        } else if (e.key === 'Escape') {
+                          setSearchResults([])
+                        }
+                      }}
                       className="input-cyber pl-10 pr-4 py-2 w-full text-sm"
                       placeholder="Search..."
                     />

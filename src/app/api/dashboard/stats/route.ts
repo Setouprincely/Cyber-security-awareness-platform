@@ -1,76 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// Mock dashboard stats data
-const mockStats = {
-  modulesCompleted: 3,
-  totalModules: 8,
-  phishingTestsPassed: 7,
-  totalPhishingTests: 10,
-  averageScore: 94,
-  timeSpent: '12.5h',
-  securityScore: 94,
-  threatsBlocked: 1247,
-  weeklyProgress: {
-    modules: 2,
-    threats: 3,
-    scoreImprovement: 5,
-    timeThisWeek: '2.5h'
-  },
-  recentAchievements: [
-    {
-      id: '1',
-      title: 'Neural Defense Expert',
-      description: 'Completed advanced threat detection module',
-      earnedAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      rarity: 'rare'
-    },
-    {
-      id: '2',
-      title: 'Phishing Hunter',
-      description: 'Successfully identified 50 phishing attempts',
-      earnedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-      rarity: 'common'
-    }
-  ],
-  upcomingDeadlines: [
-    {
-      id: '1',
-      title: 'Monthly Security Assessment',
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
-      priority: 'high'
-    },
-    {
-      id: '2',
-      title: 'Quarterly Compliance Training',
-      dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
-      priority: 'medium'
-    }
-  ]
-}
+import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 export async function GET(request: NextRequest) {
   try {
-    // In a real app, you would:
-    // 1. Get user ID from session/token
-    // 2. Fetch user-specific stats from database
-    // 3. Calculate real-time metrics
-    
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300))
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Add some randomization to make it feel more real-time
-    const stats = {
-      ...mockStats,
-      threatsBlocked: mockStats.threatsBlocked + Math.floor(Math.random() * 10),
-      securityScore: Math.min(100, mockStats.securityScore + Math.floor(Math.random() * 3)),
+    // Parallel fetches
+    const [modulesRes, progressRes, sessionsRes, eventsRes, attemptsRes] = await Promise.all([
+      supabase.from('training_modules').select('id'),
+      supabase.from('module_progress').select('completed, progress').eq('user_id', user.id),
+      supabase.from('simulation_sessions').select('success, time_taken_ms, started_at').eq('user_id', user.id),
+      supabase.from('phishing_events').select('action').eq('user_id', user.id),
+      supabase.from('quiz_attempts').select('score, passed').eq('user_id', user.id),
+    ])
+
+    const totalModules = (modulesRes.data || []).length
+    const completedModules = (progressRes.data || []).filter(p => p.completed).length
+
+    const totalPhishingTests = (sessionsRes.data || []).length
+    const phishingTestsPassed = (sessionsRes.data || []).filter(s => s.success).length
+
+    const scores = (attemptsRes.data || []).map(a => a.score || 0)
+    const averageScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+
+    const totalMs = (sessionsRes.data || []).map(s => s.time_taken_ms || 0).filter(Boolean).reduce((a, b) => a + b, 0)
+    const hours = Math.floor(totalMs / (1000 * 60 * 60))
+    const minutes = Math.round((totalMs % (1000 * 60 * 60)) / (1000 * 60))
+    const timeSpent = `${hours}h${minutes ? ' ' + minutes + 'm' : ''}`
+
+    const threatsBlocked = (eventsRes.data || []).filter(e => e.action === 'REPORTED_PHISHING').length
+
+    // Simple composite security score
+    const passRate = totalPhishingTests ? Math.round((phishingTestsPassed / totalPhishingTests) * 100) : 0
+    const securityScore = Math.round((passRate + averageScore) / 2)
+
+    // Weekly progress approximation
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const sessionsThisWeek = (sessionsRes.data || []).filter(s => new Date(s.started_at) >= oneWeekAgo)
+    const weeklyProgress = {
+      modules: Math.max(0, completedModules - Math.max(0, completedModules - 2)),
+      threats: sessionsThisWeek.length,
+      scoreImprovement: 0,
+      timeThisWeek: '—'
     }
 
-    return NextResponse.json(stats)
+    return NextResponse.json({
+      modulesCompleted: completedModules,
+      totalModules,
+      phishingTestsPassed,
+      totalPhishingTests,
+      averageScore,
+      timeSpent,
+      securityScore,
+      threatsBlocked,
+      weeklyProgress,
+    })
   } catch (error) {
     console.error('Dashboard stats API error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

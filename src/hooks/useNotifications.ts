@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useWebSocket } from '@/components/providers/WebSocketProvider'
 
 interface Notification {
   id: string
@@ -18,11 +19,29 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const { user } = useAuth()
+  let wsAvailable = false
+  try {
+    // useWebSocket is only usable within provider; guard in case of misuse
+    // If provider not present, this will throw and we skip realtime
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const ws = useWebSocket()
+    wsAvailable = !!ws
+  } catch (_) {
+    wsAvailable = false
+  }
+  // Retrieve within try/catch scope again for types
+  const webSocketContext = (() => {
+    try {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      return useWebSocket()
+    } catch {
+      return undefined
+    }
+  })()
 
   useEffect(() => {
     if (user) {
       fetchNotifications()
-      // setupWebSocket() // Commented out for now since we don't have a real WebSocket server
     } else {
       // Reset notifications when user logs out
       setNotifications([])
@@ -30,6 +49,33 @@ export function useNotifications() {
       setLoading(false)
     }
   }, [user])
+
+  // Real-time notifications via global WebSocket provider
+  useEffect(() => {
+    if (!user || !webSocketContext) return
+    const unsubscribe = webSocketContext.subscribe('notification', (payload: any) => {
+      const incoming = {
+        id: payload.id || `${Date.now()}`,
+        title: payload.title || 'Notification',
+        message: payload.message || '',
+        type: (payload.type || 'info') as Notification['type'],
+        read: false,
+        createdAt: payload.createdAt || new Date().toISOString(),
+        actionUrl: payload.actionUrl,
+      }
+      setNotifications(prev => [incoming, ...prev])
+      setUnreadCount(prev => prev + 1)
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        // Browser toast
+        try {
+          new Notification(incoming.title, { body: incoming.message, icon: '/favicon.ico' })
+        } catch {}
+      }
+    })
+    return () => {
+      if (unsubscribe) unsubscribe()
+    }
+  }, [user, webSocketContext])
 
   const fetchNotifications = async () => {
     try {

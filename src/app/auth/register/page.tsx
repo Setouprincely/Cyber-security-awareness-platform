@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Eye, EyeOff, Shield, Mail, Lock, User, ArrowLeft, ArrowRight, CheckCircle, Users } from 'lucide-react'
+import { Eye, EyeOff, Shield, Mail, Lock, User, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import Confetti from 'react-confetti'
 import { useAuth } from '@/hooks/useAuth'
@@ -46,7 +46,6 @@ export default function RegisterPage() {
     defaultValues: {
       password: '',
       confirmPassword: '',
-      role: 'TRAINEE',
       terms: false
     }
   })
@@ -60,7 +59,7 @@ export default function RegisterPage() {
       const step1Data = step1Form.getValues()
       console.log('🔐 Starting registration process...')
       
-      const { user } = await signUp(step1Data.email, data.password, step1Data.name, data.role as any)
+      const { user } = await signUp(step1Data.email, data.password, step1Data.name, 'TRAINEE' as any)
 
       if (user) {
         console.log('✅ Registration successful, user created:', user.id)
@@ -333,68 +332,7 @@ export default function RegisterPage() {
                   />
                 </motion.div>
 
-                {/* Role Selection */}
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.9 }}
-                >
-                  <label className="block text-sm font-medium text-cyber-white/70 mb-3">
-                    Network Access Level
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <motion.label
-                      className={`relative flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                        step2Form.watch('role') === 'TRAINEE'
-                          ? 'border-cyber-blue bg-cyber-blue/10'
-                          : 'border-cyber-blue/30 hover:border-cyber-blue/50'
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <input
-                        {...step2Form.register('role')}
-                        type="radio"
-                        value="TRAINEE"
-                        className="sr-only"
-                      />
-                      <div className="flex items-center">
-                        <User className="h-5 w-5 text-cyber-blue mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-cyber-white">Trainee</div>
-                          <div className="text-xs text-cyber-white/60">Standard Access</div>
-                        </div>
-                      </div>
-                    </motion.label>
-
-                    <motion.label
-                      className={`relative flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                        step2Form.watch('role') === 'ADMIN'
-                          ? 'border-cyber-purple bg-cyber-purple/10'
-                          : 'border-cyber-purple/30 hover:border-cyber-purple/50'
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <input
-                        {...step2Form.register('role')}
-                        type="radio"
-                        value="ADMIN"
-                        className="sr-only"
-                      />
-                      <div className="flex items-center">
-                        <Users className="h-5 w-5 text-cyber-purple mr-3" />
-                        <div>
-                          <div className="text-sm font-medium text-cyber-white">Admin</div>
-                          <div className="text-xs text-cyber-white/60">Full Access</div>
-                        </div>
-                      </div>
-                    </motion.label>
-                  </div>
-                  {step2Form.formState.errors.role && (
-                    <p className="mt-2 text-sm text-cyber-red">{step2Form.formState.errors.role.message}</p>
-                  )}
-                </motion.div>
+                {/* Role Selection removed: admin registration is not allowed here */}
 
                 {/* Terms and Conditions */}
                 <motion.div

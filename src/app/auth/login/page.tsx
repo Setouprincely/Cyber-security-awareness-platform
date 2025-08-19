@@ -247,29 +247,7 @@ export default function LoginPage() {
               </motion.div>
             </form>
 
-            {/* Demo Accounts */}
-            <motion.div
-              className="mt-6 border-t border-cyber-blue/20 pt-6"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5, delay: 1.0 }}
-            >
-              <p className="text-sm text-cyber-white/60 text-center mb-4">Demo Access Codes:</p>
-              <div className="space-y-2 text-xs text-cyber-white/50">
-                <motion.div
-                  className="glass-cyber p-2 rounded border border-cyber-blue/20"
-                  whileHover={{ borderColor: 'rgba(0, 212, 255, 0.5)' }}
-                >
-                  <strong className="text-cyber-blue">Admin:</strong> admin@cybersecurity-platform.com / admin123!
-                </motion.div>
-                <motion.div
-                  className="glass-cyber p-2 rounded border border-cyber-purple/20"
-                  whileHover={{ borderColor: 'rgba(139, 0, 255, 0.5)' }}
-                >
-                  <strong className="text-cyber-purple">Trainee:</strong> john.doe@example.com / trainee123!
-                </motion.div>
-              </div>
-            </motion.div>
+            {/* Demo access details removed */}
 
             {/* Sign Up Link */}
             <motion.div

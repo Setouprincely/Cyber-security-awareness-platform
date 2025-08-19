@@ -23,7 +23,8 @@ import Layout, { PageContainer, Section, Card } from '@/components/layout/Layout
 import LoadingSpinner, { CardSkeleton } from '@/components/ui/LoadingSpinner'
 import { useAuth } from '@/hooks/useAuth'
 import { useWebSocket } from '@/components/providers/WebSocketProvider'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 interface DashboardStats {
   modulesCompleted: number
@@ -50,6 +51,9 @@ export default function DashboardPage() {
   const { user } = useAuth()
   const { subscribe, isConnected } = useWebSocket()
   const [realTimeStats, setRealTimeStats] = useState<Partial<DashboardStats>>({})
+  const [urlToCheck, setUrlToCheck] = useState('')
+  const [urlVerdict, setUrlVerdict] = useState<any>(null)
+  const [urlChecking, setUrlChecking] = useState(false)
 
   // Fetch dashboard data with React Query
   const { data: dashboardData, isLoading, error } = useQuery({
@@ -82,8 +86,23 @@ export default function DashboardPage() {
     }
   }, [isConnected, subscribe])
 
-  // Merge real-time stats with fetched data
-  const stats = { ...dashboardData, ...realTimeStats }
+  // Supabase realtime: reflect updates immediately
+  useEffect(() => {
+    if (!user) return
+    const channel = supabase.channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'simulation_sessions', filter: `user_id=eq.${user.id}` }, (payload) => {
+        // naive recompute: refetch endpoint for consistency
+        fetch('/api/dashboard/stats').then(r=>r.json()).then((data)=> setRealTimeStats(prev=>({ ...prev, ...data }))).catch(()=>{})
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'module_progress', filter: `user_id=eq.${user.id}` }, (payload) => {
+        fetch('/api/dashboard/stats').then(r=>r.json()).then((data)=> setRealTimeStats(prev=>({ ...prev, ...data }))).catch(()=>{})
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user])
+
+  // Merge real-time stats with fetched data (guard against undefined)
+  const stats = { ...(dashboardData || {}), ...realTimeStats }
 
   const statCards = [
     {
@@ -212,7 +231,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout>
+    <Layout showNavbar={false} showParticles={false}>
       <PageContainer>
         <div className="space-y-8">
           {/* Neural Command Header */}
@@ -371,7 +390,7 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Neural Training Queue */}
+            {/* Neural Training Queue and Phishing URL Checker */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -434,6 +453,86 @@ export default function DashboardPage() {
                   </button>
                 </Link>
               </Card>
+
+              <Card className="mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gradient-cyber flex items-center">
+                    <ShieldCheckIcon className="h-6 w-6 mr-2 text-cyber-green" />
+                    Phishing URL Checker
+                  </h2>
+                  <span className="text-cyber-white/50 text-sm">Client-side heuristics</span>
+                </div>
+                <div className="space-y-3">
+                  <input
+                    className="w-full rounded-md bg-cyber-dark/40 border border-cyber-green/30 p-2 text-cyber-white placeholder:text-cyber-white/40"
+                    placeholder="Paste a suspicious link (e.g., http://secure-c0mpany.com/reset)"
+                    value={urlToCheck}
+                    onChange={(e) => setUrlToCheck(e.target.value)}
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      className="btn-cyber-primary"
+                      onClick={async () => {
+                        setUrlChecking(true)
+                        setUrlVerdict(null)
+                        try {
+                          const res = await fetch('/api/security/url-check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: urlToCheck }) })
+                          const data = await res.json()
+                          if (res.ok) {
+                            setUrlVerdict(data)
+                          } else {
+                            setUrlVerdict({ verdict: 'error', score: 0, signals: [{ message: data.error || 'Failed to check URL', weight: 0 }] })
+                          }
+                        } catch (e: any) {
+                          setUrlVerdict({ verdict: 'error', score: 0, signals: [{ message: e?.message || 'Network error', weight: 0 }] })
+                        } finally {
+                          setUrlChecking(false)
+                        }
+                      }}
+                      disabled={urlChecking || !urlToCheck.trim()}
+                    >
+                      {urlChecking ? 'Analyzing…' : 'Analyze'}
+                    </button>
+                    <Link href="/simulations/run"><button className="btn-cyber-secondary">Try a Simulation</button></Link>
+                  </div>
+                  {urlVerdict && (
+                    <div className={`p-3 rounded-md border ${urlVerdict.verdict === 'likely_phishing' ? 'border-cyber-red/40 bg-cyber-red/10' : urlVerdict.verdict === 'error' ? 'border-cyber-orange/40 bg-cyber-orange/10' : 'border-cyber-green/40 bg-cyber-green/10' }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="text-cyber-white font-medium">Verdict: {String(urlVerdict.verdict).replace('_',' ')}</div>
+                        <div className="text-sm text-cyber-white/70">Risk score: {urlVerdict.score}/100</div>
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-cyber-white/70">
+                        <div><span className="text-cyber-white/50">Protocol:</span> {urlVerdict.protocol}</div>
+                        <div><span className="text-cyber-white/50">Host:</span> {urlVerdict.hostname}</div>
+                        <div><span className="text-cyber-white/50">Path:</span> {urlVerdict.pathname}</div>
+                        <div><span className="text-cyber-white/50">Query:</span> {urlVerdict.query || '—'}</div>
+                        {urlVerdict.port && <div><span className="text-cyber-white/50">Port:</span> {urlVerdict.port}</div>}
+                      </div>
+                      {!!(urlVerdict.signals || []).length && (
+                        <div className="mt-2">
+                          <div className="text-sm text-cyber-white/80 mb-1">Indicators</div>
+                          <ul className="space-y-1">
+                            {urlVerdict.signals.map((s: any, i: number) => (
+                              <li key={i} className="flex items-center justify-between text-xs">
+                                <span className="text-cyber-white/80">{s.message}</span>
+                                <span className="px-2 py-0.5 rounded-full bg-cyber-dark/40 text-cyber-white/60">{s.weight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {!!(urlVerdict.recommendations || []).length && (
+                        <div className="mt-2">
+                          <div className="text-sm text-cyber-white/80 mb-1">Recommendations</div>
+                          <ul className="list-disc pl-5 space-y-1 text-xs text-cyber-white/80">
+                            {urlVerdict.recommendations.map((r: string, i: number) => (<li key={i}>{r}</li>))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Card>
             </motion.div>
           </div>
 
@@ -462,7 +561,7 @@ export default function DashboardPage() {
                     title: 'Threat Simulation',
                     description: 'Test defensive capabilities',
                     color: 'cyber-purple',
-                    href: '/simulations'
+                    href: '/simulations/run'
                   },
                   {
                     icon: ChartBarIcon,
@@ -497,6 +596,22 @@ export default function DashboardPage() {
                     </motion.div>
                   </Link>
                 ))}
+              </div>
+              {/* Recommended Actions */}
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="p-4 bg-cyber-dark/20 border-cyber-blue/30">
+                  <h3 className="text-cyber-white font-semibold mb-2">Recommended Actions</h3>
+                  <ul className="list-disc pl-5 text-sm text-cyber-white/80 space-y-1">
+                    <li>Complete the Password Security module</li>
+                    <li>Try a new phishing simulation</li>
+                    <li>Review your last quiz results</li>
+                  </ul>
+                </Card>
+                <Card className="p-4 bg-cyber-dark/20 border-cyber-purple/30">
+                  <h3 className="text-cyber-white font-semibold mb-2">Exports</h3>
+                  <p className="text-cyber-white/70 text-sm">Admins can export analytics for jury review.</p>
+                  <Link href="/api/analytics/export"><button className="mt-3 btn-cyber-secondary">Download CSV</button></Link>
+                </Card>
               </div>
             </Card>
           </motion.div>

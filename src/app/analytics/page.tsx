@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { BarChart3, TrendingUp, Users, Target, Calendar, Download } from 'lucide-react'
 import { GlassCard } from '@/components/ui/GlassCard'
@@ -9,9 +9,11 @@ import { CyberButton } from '@/components/ui/cyber-button'
 export default function AnalyticsPage() {
   const { user } = useAuth()
   const [timeRange, setTimeRange] = useState('30d')
+  const [simStats, setSimStats] = useState<{ totals: any; breakdown: any[] } | null>(null)
 
-  // Check if user is admin
-  if (user?.role !== 'admin') {
+  // Check if user is admin (supports 'ADMIN' from Supabase profile)
+  const isAdmin = String(user?.role || '').toUpperCase() === 'ADMIN'
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center">
@@ -53,6 +55,19 @@ export default function AnalyticsPage() {
     },
   ]
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/analytics/simulations')
+        if (res.ok) {
+          const data = await res.json()
+          setSimStats(data)
+        }
+      } catch {}
+    }
+    load()
+  }, [])
+
   const trainingData = [
     { module: 'Phishing Awareness', completed: 89, total: 100 },
     { module: 'Password Security', completed: 76, total: 100 },
@@ -61,12 +76,14 @@ export default function AnalyticsPage() {
     { module: 'Incident Response', completed: 42, total: 100 },
   ]
 
-  const simulationResults = [
-    { type: 'Banking Phishing', passed: 78, failed: 22 },
-    { type: 'IT Support Scam', passed: 65, failed: 35 },
-    { type: 'CEO Fraud', passed: 45, failed: 55 },
-    { type: 'Software Update', passed: 82, failed: 18 },
-    { type: 'Social Media', passed: 91, failed: 9 },
+  const simulationResults = simStats ? [
+    { type: 'Email', passed: simStats.breakdown.find(b => b.type === 'EMAIL')?.reportRate ?? 0, failed: simStats.breakdown.find(b => b.type === 'EMAIL') ? 100 - (simStats.breakdown.find(b => b.type === 'EMAIL')?.reportRate ?? 0) : 0 },
+    { type: 'SMS', passed: simStats.breakdown.find(b => b.type === 'SMS')?.reportRate ?? 0, failed: simStats.breakdown.find(b => b.type === 'SMS') ? 100 - (simStats.breakdown.find(b => b.type === 'SMS')?.reportRate ?? 0) : 0 },
+    { type: 'Website', passed: simStats.breakdown.find(b => b.type === 'WEBSITE')?.reportRate ?? 0, failed: simStats.breakdown.find(b => b.type === 'WEBSITE') ? 100 - (simStats.breakdown.find(b => b.type === 'WEBSITE')?.reportRate ?? 0) : 0 },
+  ] : [
+    { type: 'Email', passed: 0, failed: 0 },
+    { type: 'SMS', passed: 0, failed: 0 },
+    { type: 'Website', passed: 0, failed: 0 },
   ]
 
   const recentActivity = [

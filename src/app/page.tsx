@@ -119,17 +119,37 @@ export default function HomePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.9 }}
               >
-                <Link href="/auth/register">
-                  <CyberButton variant="primary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
-                    <span>Start Neural Training</span>
-                    <ArrowRightIcon className="w-5 h-5" />
-                  </CyberButton>
-                </Link>
-
-                <CyberButton variant="ghost" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
-                  <PlayIcon className="w-5 h-5" />
-                  <span>Watch Demo</span>
-                </CyberButton>
+                {!user ? (
+                  <>
+                    <Link href="/auth/register">
+                      <CyberButton variant="primary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                        <span>Start Neural Training</span>
+                        <ArrowRightIcon className="w-5 h-5" />
+                      </CyberButton>
+                    </Link>
+                    <Link href="/auth/login">
+                      <CyberButton variant="secondary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                        <LockClosedIcon className="w-5 h-5" />
+                        <span>Sign In</span>
+                      </CyberButton>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/dashboard">
+                      <CyberButton variant="primary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                        <span>Enter Command Center</span>
+                        <ArrowRightIcon className="w-5 h-5" />
+                      </CyberButton>
+                    </Link>
+                    <Link href="/training">
+                      <CyberButton variant="ghost" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                        <PlayIcon className="w-5 h-5" />
+                        <span>Open Training Matrix</span>
+                      </CyberButton>
+                    </Link>
+                  </>
+                )}
               </motion.div>
 
               {/* Stats */}
@@ -385,18 +405,37 @@ export default function HomePage() {
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                    <Link href="/auth/register">
-                      <button className="btn-cyber-primary px-8 py-4 text-lg flex items-center space-x-2">
-                        <span>Initialize Neural Training</span>
-                        <ArrowRightIcon className="w-5 h-5" />
-                      </button>
-                    </Link>
-
-                    <Link href="/contact">
-                      <button className="glass-cyber px-8 py-4 text-lg border border-cyber-blue/30 hover:border-cyber-blue/50 transition-all duration-300">
-                        Contact Command Center
-                      </button>
-                    </Link>
+                    {!user ? (
+                      <>
+                        <Link href="/auth/register">
+                          <CyberButton variant="primary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                            <span>Initialize Neural Training</span>
+                            <ArrowRightIcon className="w-5 h-5" />
+                          </CyberButton>
+                        </Link>
+                        <Link href="/auth/login">
+                          <CyberButton variant="secondary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                            <LockClosedIcon className="w-5 h-5" />
+                            <span>Sign In</span>
+                          </CyberButton>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link href="/dashboard">
+                          <CyberButton variant="primary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                            <span>Go to Command Center</span>
+                            <ArrowRightIcon className="w-5 h-5" />
+                          </CyberButton>
+                        </Link>
+                        <Link href="/training">
+                          <CyberButton variant="secondary" size="lg" className="px-8 py-4 text-lg flex items-center space-x-2">
+                            <PlayIcon className="w-5 h-5" />
+                            <span>Continue Training</span>
+                          </CyberButton>
+                        </Link>
+                      </>
+                    )}
                   </div>
 
                   <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
