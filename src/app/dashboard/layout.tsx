@@ -35,7 +35,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!loading && !user) {
       console.log('🚫 No user found, redirecting to login')
-      router.push('/auth/login?redirect=' + encodeURIComponent(pathname))
+      router.replace('/auth/login?redirect=' + encodeURIComponent(pathname))
     }
   }, [user, loading, router, pathname])
 

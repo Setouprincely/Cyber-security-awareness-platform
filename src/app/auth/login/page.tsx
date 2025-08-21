@@ -33,11 +33,12 @@ export default function LoginPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      const redirectTo = searchParams?.get('redirect') || '/dashboard'
-      router.push(redirectTo)
+    if (user && !isLoading) {
+      const redirectTo = searchParams?.get('redirectTo') || '/dashboard'
+      console.log('🔄 User already logged in, redirecting to:', redirectTo)
+      router.replace(redirectTo)
     }
-  }, [user, searchParams, router])
+  }, [user, searchParams, isLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +47,7 @@ export default function LoginPage() {
     try {
       await login(formData.email, formData.password)
       
-      toast.success('Access Granted! Welcome to the Cyber Defense Network', {
+      toast.success('Access Granted! Redirecting to Dashboard...', {
         style: {
           background: 'rgba(10, 10, 35, 0.9)',
           border: '1px solid #00FF41',
@@ -55,7 +56,11 @@ export default function LoginPage() {
         }
       })
       
+      // Don't set loading to false here - let the redirect happen
+      // The loading state will be reset when the component unmounts
+      
     } catch (error: any) {
+      console.error('Login error:', error)
       toast.error(error.message || 'Access Denied - Authentication Failed', {
         style: {
           background: 'rgba(10, 10, 35, 0.9)',
@@ -64,7 +69,6 @@ export default function LoginPage() {
           boxShadow: '0 0 20px rgba(255, 7, 58, 0.3)'
         }
       })
-    } finally {
       setIsLoading(false)
     }
   }
@@ -246,8 +250,6 @@ export default function LoginPage() {
                 </button>
               </motion.div>
             </form>
-
-            {/* Demo access details removed */}
 
             {/* Sign Up Link */}
             <motion.div

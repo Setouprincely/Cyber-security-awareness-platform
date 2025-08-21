@@ -56,16 +56,18 @@ export function useAuthProvider(): AuthContextType {
             .eq('id', session.user.id)
             .single()
 
-          if (profileError) throw profileError
+          if (profileError) {
+            console.warn('Profile not found, creating default user data')
+          }
 
           setUser({
             id: session.user.id,
             email: session.user.email!,
-            name: profile.name,
-            role: profile.role || 'user',
-            avatar: profile.avatar,
-            createdAt: profile.created_at,
-            lastLogin: profile.last_login
+            name: profile?.name || session.user.email!,
+            role: profile?.role || 'user',
+            avatar: profile?.avatar,
+            createdAt: profile?.created_at || new Date().toISOString(),
+            lastLogin: profile?.last_login
           })
         }
       } catch (error) {
@@ -86,20 +88,19 @@ export function useAuthProvider(): AuthContextType {
           .eq('id', session.user.id)
           .single()
 
-        if (profile) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email!,
-            name: profile.name,
-            role: profile.role || 'user',
-            avatar: profile.avatar,
-            createdAt: profile.created_at,
-            lastLogin: profile.last_login
-          })
-        }
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          name: profile?.name || session.user.email!,
+          role: profile?.role || 'user',
+          avatar: profile?.avatar,
+          createdAt: profile?.created_at || new Date().toISOString(),
+          lastLogin: profile?.last_login
+        })
       } else {
         setUser(null)
       }
+      setLoading(false)
     })
 
     return () => {
@@ -110,32 +111,58 @@ export function useAuthProvider(): AuthContextType {
   const login = async (email: string, password: string) => {
     setLoading(true)
     try {
+      console.log('🔐 Attempting login for:', email)
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
 
-      if (error) throw error
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single()
-
-      const userData: User = {
-        id: data.user.id,
-        email: data.user.email!,
-        name: profile.name,
-        role: profile.role || 'user',
-        avatar: profile.avatar,
-        createdAt: profile.created_at,
-        lastLogin: new Date().toISOString()
+      if (error) {
+        console.error('❌ Login error:', error)
+        throw error
       }
 
-      setUser(userData)
-      router.push('/dashboard')
+      console.log('✅ Login successful, user:', data.user?.id)
+
+      // Wait for the auth state to be properly set before redirecting
+      if (data.user) {
+        console.log('👤 Fetching user profile...')
+        
+        // Fetch user profile immediately
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single()
+
+        if (profileError) {
+          console.warn('⚠️ Profile fetch error:', profileError)
+        }
+
+        const userData = {
+          id: data.user.id,
+          email: data.user.email!,
+          name: profile?.name || data.user.email!,
+          role: profile?.role || 'user',
+          avatar: profile?.avatar,
+          createdAt: profile?.created_at || new Date().toISOString(),
+          lastLogin: profile?.last_login
+        }
+
+        console.log('👤 Setting user data:', userData)
+        
+        // Set user state immediately
+        setUser(userData)
+
+        console.log('🚀 Redirecting to dashboard...')
+        
+        // Use replace instead of push to avoid back button issues
+        router.replace('/dashboard')
+      }
+      
     } catch (error) {
+      console.error('❌ Login failed:', error)
       throw error
     } finally {
       setLoading(false)
@@ -181,7 +208,9 @@ export function useAuthProvider(): AuthContextType {
             created_at: new Date().toISOString()
           })
 
-        if (profileError) throw profileError
+        if (profileError) {
+          console.warn('Profile creation failed:', profileError)
+        }
 
         // Auto-login after registration
         await login(userData.email, userData.password)

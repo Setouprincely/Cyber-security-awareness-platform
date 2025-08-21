@@ -1,29 +1,19 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL');
-}
-if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-  throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
+// Normalize environment variables to avoid issues with trailing spaces or undefined values
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').trim()
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '').trim()
+
+// Do not throw on the client: throwing here can break hydration and freeze navigation
+if (!supabaseUrl || !supabaseAnonKey) {
+  // eslint-disable-next-line no-console
+  console.error(
+    'Supabase configuration is missing (NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY). Auth features may be disabled.'
+  )
 }
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
-    },
-    db: {
-      schema: 'public',
-    },
-    global: {
-      headers: {
-        'x-my-custom-header': 'cybersecurity-platform',
-      },
-    },
-  }
-);
+// Pass explicit values to guard against trailing whitespace and ensure predictable behavior
+export const supabase = createClientComponentClient({
+  supabaseUrl: supabaseUrl || undefined,
+  supabaseKey: supabaseAnonKey || undefined,
+})

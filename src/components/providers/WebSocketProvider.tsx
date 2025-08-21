@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 
 interface WebSocketContextType {
   socket: WebSocket | null
@@ -28,28 +28,46 @@ export function WebSocketProvider({ children, user }: WebSocketProviderProps) {
   const [socket, setSocket] = useState<WebSocket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [eventListeners, setEventListeners] = useState<Map<string, Set<(data: any) => void>>>(new Map())
+  const [connectionAttempts, setConnectionAttempts] = useState(0)
+  const [maxRetries] = useState(3) // Limit retry attempts
+  const mountedRef = useRef(true)
 
   useEffect(() => {
-    if (user && !socket) {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    // Only attempt WebSocket connection if explicitly enabled
+    const wsEnabled = process.env.NEXT_PUBLIC_WS_ENABLED === 'true'
+    
+    if (user && !socket && wsEnabled && connectionAttempts < maxRetries) {
       connectWebSocket()
     }
 
     return () => {
-      if (socket) {
-        socket.close()
-      }
+      try {
+        if (socket) {
+          socket.close()
+        }
+      } catch {}
     }
-  }, [user, socket])
+  }, [user, socket, connectionAttempts, maxRetries])
 
   const connectWebSocket = () => {
     try {
+      setConnectionAttempts(prev => prev + 1)
       const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001'
       const ws = new WebSocket(`${wsUrl}?userId=${user?.id}`)
 
       ws.onopen = () => {
         console.log('WebSocket connected')
-        setIsConnected(true)
-        setSocket(ws)
+        if (mountedRef.current) {
+          setIsConnected(true)
+          setSocket(ws)
+          setConnectionAttempts(0) // Reset attempts on successful connection
+        }
       }
 
       ws.onmessage = (event) => {
@@ -69,23 +87,30 @@ export function WebSocketProvider({ children, user }: WebSocketProviderProps) {
 
       ws.onclose = () => {
         console.log('WebSocket disconnected')
-        setIsConnected(false)
-        setSocket(null)
+        if (mountedRef.current) {
+          setIsConnected(false)
+          setSocket(null)
+        }
         
-        // Attempt to reconnect after 3 seconds
-        setTimeout(() => {
-          if (user) {
-            connectWebSocket()
-          }
-        }, 3000)
+        // Only attempt to reconnect if we haven't exceeded max retries
+        if (connectionAttempts < maxRetries) {
+          setTimeout(() => {
+            if (mountedRef.current && user && connectionAttempts < maxRetries) {
+              connectWebSocket()
+            }
+          }, 3000)
+        } else {
+          console.warn('WebSocket max retry attempts reached. Real-time features disabled.')
+        }
       }
 
       ws.onerror = (error) => {
         console.error('WebSocket error:', error)
-        setIsConnected(false)
+        if (mountedRef.current) setIsConnected(false)
       }
     } catch (error) {
       console.error('Failed to connect WebSocket:', error)
+      setConnectionAttempts(prev => prev + 1)
     }
   }
 
@@ -98,17 +123,20 @@ export function WebSocketProvider({ children, user }: WebSocketProviderProps) {
   }
 
   const subscribe = (event: string, callback: (data: any) => void) => {
-    setEventListeners(prev => {
-      const newMap = new Map(prev)
-      if (!newMap.has(event)) {
-        newMap.set(event, new Set())
-      }
-      newMap.get(event)!.add(callback)
-      return newMap
-    })
+    if (mountedRef.current) {
+      setEventListeners(prev => {
+        const newMap = new Map(prev)
+        if (!newMap.has(event)) {
+          newMap.set(event, new Set())
+        }
+        newMap.get(event)!.add(callback)
+        return newMap
+      })
+    }
 
     // Return unsubscribe function
     return () => {
+      if (!mountedRef.current) return
       setEventListeners(prev => {
         const newMap = new Map(prev)
         const listeners = newMap.get(event)

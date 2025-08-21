@@ -36,8 +36,9 @@ export default function AdminPage() {
     { id: 3, title: 'CEO Fraud', sent: 600, clicked: 300, reported: 300, created: '2024-01-10' },
   ]
 
-  // Check if user is admin
-  if (user?.role !== 'ADMIN') {
+  // Check if user is admin (support 'admin' vs 'ADMIN' string variants)
+  const isAdmin = typeof user?.role === 'string' && user.role.toLowerCase() === 'admin'
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-96">
         <div className="text-center">

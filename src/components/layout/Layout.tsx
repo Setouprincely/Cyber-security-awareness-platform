@@ -3,7 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import Navbar from './Navbar'
-import ParticleBackground from '../ui/ParticleBackground'
+import StaticCyberBackground from '../ui/StaticCyberBackground'
 import { useAuth } from '@/hooks/useAuth'
 import LoadingSpinner from '../ui/LoadingSpinner'
 
@@ -44,13 +44,11 @@ export default function Layout({
         {/* Cyber Grid */}
         <div className="absolute inset-0 cyber-grid-bg opacity-10" />
         
-        {/* Particle Background */}
+        {/* Static Cyber Background */}
         {showParticles && (
-          <ParticleBackground
-            particleCount={30}
-            colors={['#00D4FF', '#8B00FF', '#FF007A', '#00FF41']}
-            speed={0.3}
-            interactive={true}
+          <StaticCyberBackground
+            variant="grid"
+            opacity={0.15}
           />
         )}
       </div>
